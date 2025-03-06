@@ -1,42 +1,37 @@
-import os
+from app.database import Base, engine
+from app.routers import user
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from fastapi import Depends, FastAPI
-from sqlalchemy import create_engine, text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+# Create tables (in development; use Alembic for migrations in production)
+# Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Maeni")
+app = FastAPI(
+    title="Maeni Learning API",
+    description="API for the Maeni Learning application",
+    version="0.1.0",
+)
 
-# Database connection
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@db:5432/maeni")
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Update this for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-
-# Dependency
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-@app.get("/")
-def read_root():
-    return {"message": "前に進む"}
+# Include routers
+app.include_router(user.router)
 
 
 @app.get("/health")
-def health_check(db=Depends(get_db)):
-    try:
-        # Execute a simple query to check database connection
-        result = db.execute(text("SELECT 1")).scalar()
-        return {
-            "status": "healthy",
-            "database": "connected" if result == 1 else "error",
-        }
-    except Exception as e:
-        return {"status": "unhealthy", "database": "disconnected", "error": str(e)}
+def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)
